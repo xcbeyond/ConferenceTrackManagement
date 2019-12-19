@@ -1,6 +1,7 @@
 package com.xcbeyond.ctm.util;
 
 import com.xcbeyond.ctm.constant.Constant;
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.List;

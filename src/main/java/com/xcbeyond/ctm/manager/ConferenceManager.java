@@ -19,16 +19,16 @@ public class ConferenceManager implements Manager{
     private List<String> scheduleTalks = new ArrayList<>();
 
     @Override
-    public Conference readData(String filename, boolean isInput) {
+    public Conference readData(String filename, boolean idDispaly) {
         List<String> inputs = FileUtils.readFile(filename);
-        if (isInput) {
+        if (idDispaly) {
             inputDisplay(inputs);
         }
 
-        Parser parser = new TalkParser();
+        Parser<Talk, List<String>> parser = new TalkParser();
         List<Talk> talks = parser.execute(inputs);
 
-        Collections.sort(talks, new TalkCompartor());
+        Collections.sort(talks, Comparator.comparingInt(Talk::getDuration));
 
         // 计算会议总时间
         Integer totalDuration = 0;
@@ -52,7 +52,7 @@ public class ConferenceManager implements Manager{
      */
     private void inputDisplay(List<String> inputs) {
         System.out.println("Test input:");
-        inputs.forEach(line -> System.out.println(line));
+        inputs.forEach(System.out::println);
         System.out.println();
     }
 
@@ -60,10 +60,6 @@ public class ConferenceManager implements Manager{
     public int schedule(int trackNo, Conference conference, int talkIndex) {
         scheduleTalks.add("Track:" + (trackNo + 1));
 
-        int morningDuration = 180;
-        int afternoonDuration = 240;
-
-        SimpleDateFormat sdf = new SimpleDateFormat("hh:mm aa",Locale.ENGLISH);
         Calendar cal = new GregorianCalendar();
         cal.set(Calendar.HOUR, 9);
         cal.set(Calendar.MINUTE, 0);
@@ -72,27 +68,7 @@ public class ConferenceManager implements Manager{
         List<Talk> talks = conference.getTalks();
         String schedule;
         // 上午
-        for (;talkIndex<talks.size();talkIndex++) {
-            if (morningDuration >= talks.get(talkIndex).getDuration()) {
-                morningDuration = morningDuration -  talks.get(talkIndex).getDuration();
-
-                schedule = sdf.format(cal.getTime()).replaceAll(" ", "") + " " + talks.get(talkIndex).getTitle() + " " + talks.get(talkIndex).getDuration() + "min";
-                scheduleTalks.add(schedule);
-                cal.add(Calendar.MINUTE, talks.get(talkIndex).getDuration());
-            }
-
-            if (morningDuration < talks.get(talkIndex).getDuration()) {
-                break;
-            }
-
-            if (morningDuration > 0) {
-                continue;
-            }
-
-            if (morningDuration <= 0) {
-                break;
-            }
-        }
+        talkIndex = subSchedule(talkIndex, Constant.MORNING_DURATION, cal, talks);
 
         // 午饭时段
         schedule = "12:00PM" + " " + "Lunch";
@@ -101,26 +77,39 @@ public class ConferenceManager implements Manager{
 
         talkIndex++;
         // 下午
-        for (; talkIndex < talks.size();talkIndex++) {
-            if (afternoonDuration >= talks.get(talkIndex).getDuration()) {
-                afternoonDuration = afternoonDuration -  talks.get(talkIndex).getDuration();
-                schedule = sdf.format(cal.getTime()).replaceAll(" ", "") + " " + talks.get(talkIndex).getTitle() + " " + talks.get(talkIndex).getDuration() + "min";
-                scheduleTalks.add(schedule);
-                cal.add(Calendar.MINUTE, talks.get(talkIndex).getDuration());
-            }
-            if (afternoonDuration < talks.get(talkIndex).getDuration()) {
-                break;
-            }
-            if (afternoonDuration > 0) {
-                continue;
-            }
-            if (afternoonDuration <= 0) {
-                break;
-            }
-        }
+        talkIndex = subSchedule(talkIndex, Constant.AFTERNOON_DURATION, cal, talks);
 
+        // 网络会议
         schedule = "05:00PM" + " " + "Networking Event";
         scheduleTalks.add(schedule + "\n");
+
+        return talkIndex;
+    }
+
+    private int subSchedule(int talkIndex, int duration, Calendar cal, List<Talk> talks) {
+        SimpleDateFormat sdf = new SimpleDateFormat("hh:mm aa",Locale.ENGLISH);
+
+        for (; talkIndex < talks.size(); talkIndex++) {
+            int currDuration = talks.get(talkIndex).getDuration();
+            if (duration >= currDuration) {
+                duration = duration - currDuration;
+
+                String schedule = sdf.format(cal.getTime()).replaceAll(" ", "") + " "
+                        + talks.get(talkIndex).getTitle() + " " + currDuration + "min";
+                scheduleTalks.add(schedule);
+                cal.add(Calendar.MINUTE, currDuration);
+            }
+            if (duration < currDuration) {
+                break;
+            }
+
+
+            if (duration > 0) {
+                continue;
+            }
+
+            break;
+        }
 
         return talkIndex;
     }
